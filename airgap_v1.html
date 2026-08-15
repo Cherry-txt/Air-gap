@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090b14">
+<title>AirGap • QR Link</title>
+
+<!-- QR generator + QR camera decoder -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<style>
+:root{
+  --bg:#070911; --card:rgba(20,24,40,.78); --line:rgba(255,255,255,.09);
+  --text:#f5f7ff; --muted:#9aa4bd; --accent:#7c5cff; --accent2:#22d3ee;
+  --good:#35e39b; --bad:#ff5f7a; --shadow:0 24px 70px rgba(0,0,0,.38);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; color:var(--text);
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at 15% 10%,rgba(124,92,255,.22),transparent 30%),
+    radial-gradient(circle at 85% 15%,rgba(34,211,238,.14),transparent 28%),
+    linear-gradient(145deg,#070911,#0c1020 55%,#070911);
+}
+.app{width:min(720px,100%);margin:auto;padding:22px 16px 40px}
+header{text-align:center;padding:18px 0 22px}
+.logo{
+  width:62px;height:62px;margin:auto;border-radius:20px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  box-shadow:0 12px 35px rgba(124,92,255,.3);font-size:30px
+}
+h1{margin:14px 0 5px;font-size:31px;letter-spacing:-1px}
+.subtitle{color:var(--muted);margin:0;font-size:14px}
+.tabs{
+  display:grid;grid-template-columns:1fr 1fr;padding:5px;margin-bottom:16px;
+  background:rgba(255,255,255,.055);border:1px solid var(--line);border-radius:16px
+}
+.tab{
+  border:0;background:transparent;color:var(--muted);padding:12px;border-radius:12px;
+  font-weight:800;font-size:15px;cursor:pointer
+}
+.tab.active{background:rgba(124,92,255,.2);color:#fff}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:24px;
+  padding:20px;box-shadow:var(--shadow);backdrop-filter:blur(18px)
+}
+.section{display:none}.section.active{display:block}
+.label{display:block;color:#cbd2e6;font-size:13px;font-weight:700;margin-bottom:8px}
+textarea{
+  width:100%;min-height:110px;resize:vertical;border:1px solid var(--line);
+  background:rgba(0,0,0,.22);color:#fff;border-radius:15px;padding:14px;
+  outline:none;font:inherit
+}
+textarea:focus{border-color:rgba(124,92,255,.7);box-shadow:0 0 0 3px rgba(124,92,255,.12)}
+.row{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
+button.primary,button.secondary{
+  flex:1;border:0;border-radius:14px;padding:13px 15px;font-weight:850;font-size:15px;cursor:pointer
+}
+button.primary{color:#fff;background:linear-gradient(135deg,var(--accent),#5d7cff);box-shadow:0 8px 25px rgba(124,92,255,.25)}
+button.secondary{color:#e9edfa;background:rgba(255,255,255,.07);border:1px solid var(--line)}
+button:active{transform:scale(.98)}
+.qr-wrap{
+  margin:20px auto 14px;width:min(340px,90vw);aspect-ratio:1;display:grid;place-items:center;
+  background:#fff;border-radius:20px;padding:15px;box-shadow:0 15px 45px rgba(0,0,0,.35)
+}
+#qr{width:300px;height:300px;display:grid;place-items:center}
+#qr img,#qr canvas{max-width:100%;height:auto}
+.status{
+  display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:14px;
+  background:rgba(255,255,255,.055);border:1px solid var(--line);color:#dbe1f3;
+  font-size:13px;line-height:1.4
+}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.dot.good{background:var(--good);box-shadow:0 0 12px var(--good)}
+.dot.bad{background:var(--bad)}
+video{
+  width:100%;display:block;background:#020307;border-radius:20px;
+  aspect-ratio:4/3;object-fit:cover;border:1px solid var(--line);margin:16px 0
+}
+.scanbox{position:relative}
+.scanbox:after{
+  content:"";position:absolute;inset:14%;border:2px solid rgba(255,255,255,.7);
+  border-radius:22px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.06)
+}
+.received{
+  margin-top:12px;padding:18px;border-radius:18px;background:rgba(53,227,155,.07);
+  border:1px solid rgba(53,227,155,.16)
+}
+.received-title{font-size:12px;color:var(--muted);margin-bottom:7px}
+.received-text{font-size:20px;font-weight:800;word-break:break-word}
+.hint{color:var(--muted);font-size:12px;text-align:center;margin:12px 0 0}
+.badge{
+  display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:99px;
+  background:rgba(124,92,255,.12);color:#cfc7ff;font-size:12px;font-weight:800
+}
+#canvas{display:none}
+@media(max-width:480px){.app{padding:14px 12px 30px}h1{font-size:27px}.card{padding:16px}}
+</style>
+</head>
+
+<body>
+<div class="app">
+<header>
+  <div class="logo">⌁</div>
+  <h1>AirGap</h1>
+  <p class="subtitle">Offline QR communication • V1 text link</p>
+</header>
+
+<div class="tabs">
+  <button id="txTab" class="tab active">📡 Transmitter</button>
+  <button id="rxTab" class="tab">📷 Receiver</button>
+</div>
+
+<div class="card">
+
+<section id="txSection" class="section active">
+  <span class="badge">● TX • QR Broadcast</span>
+  <h2>Send a message</h2>
+  <label class="label" for="message">Message</label>
+  <textarea id="message" maxlength="180">HELLO AIRGAP 🚀</textarea>
+
+  <div class="row">
+    <button id="startTx" class="primary">Start transmission</button>
+    <button id="stopTx" class="secondary">Stop</button>
+  </div>
+
+  <div class="qr-wrap"><div id="qr"></div></div>
+  <div class="status"><span id="txDot" class="dot"></span><span id="txStatus">Ready to transmit</span></div>
+  <p class="hint">Keep the QR visible to the receiver camera.</p>
+</section>
+
+<section id="rxSection" class="section">
+  <span class="badge">● RX • Camera Scanner</span>
+  <h2>Receive a message</h2>
+
+  <div class="scanbox">
+    <video id="video" playsinline muted></video>
+  </div>
+  <canvas id="canvas"></canvas>
+
+  <div class="row">
+    <button id="startRx" class="primary">Start camera</button>
+    <button id="stopRx" class="secondary">Stop</button>
+  </div>
+
+  <div class="status">
+    <span id="rxDot" class="dot"></span><span id="rxStatus">Camera is stopped</span>
+  </div>
+
+  <div class="received">
+    <div class="received-title">LAST RECEIVED PACKET</div>
+    <div id="receivedText" class="received-text">Waiting for QR…</div>
+  </div>
+
+  <p class="hint">Allow camera permission, then point the camera at the TX QR.</p>
+</section>
+
+</div>
+</div>
+
+<script>
+const txTab=document.getElementById("txTab");
+const rxTab=document.getElementById("rxTab");
+const txSection=document.getElementById("txSection");
+const rxSection=document.getElementById("rxSection");
+const message=document.getElementById("message");
+const qr=document.getElementById("qr");
+const video=document.getElementById("video");
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d",{willReadFrequently:true});
+
+let txTimer=null,seq=0,stream=null,scanTimer=null,lastPacket="";
+let txRunning=false,rxRunning=false;
+
+function setMode(mode){
+  const tx=mode==="tx";
+  txSection.classList.toggle("active",tx);
+  rxSection.classList.toggle("active",!tx);
+  txTab.classList.toggle("active",tx);
+  rxTab.classList.toggle("active",!tx);
+}
+txTab.onclick=()=>setMode("tx");
+rxTab.onclick=()=>setMode("rx");
+
+function encodeText(s){return btoa(unescape(encodeURIComponent(s)))}
+function decodeText(s){return decodeURIComponent(escape(atob(s)))}
+
+function makePacket(){
+  return "AG1|"+seq+"|"+encodeText(message.value||"HELLO AIRGAP");
+}
+
+function drawPacket(packet){
+  qr.innerHTML="";
+  new QRCode(qr,{
+    text:packet,width:300,height:300,
+    correctLevel:QRCode.CorrectLevel.M
+  });
+}
+
+function startTx(){
+  stopTx();
+  if(typeof QRCode==="undefined"){
+    document.getElementById("txStatus").textContent="QR library failed to load. Check internet and reload.";
+    return;
+  }
+  seq=0;txRunning=true;
+  const send=()=>{
+    const packet=makePacket();
+    drawPacket(packet);
+    document.getElementById("txStatus").textContent="Broadcasting packet #"+seq;
+    document.getElementById("txDot").className="dot good";
+    seq++;
+  };
+  send();
+  txTimer=setInterval(send,800);
+}
+
+function stopTx(){
+  clearInterval(txTimer);txTimer=null;txRunning=false;
+  document.getElementById("txDot").className="dot";
+  document.getElementById("txStatus").textContent="Transmission stopped";
+}
+
+async function startRx(){
+  if(!window.isSecureContext){
+    setRx("HTTPS required. Open your GitHub Pages URL.","bad"); return;
+  }
+  if(typeof jsQR!=="function"){
+    setRx("QR decoder failed to load. Check internet and reload.","bad"); return;
+  }
+  if(!navigator.mediaDevices?.getUserMedia){
+    setRx("Camera API unavailable in this browser.","bad"); return;
+  }
+
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},
+      audio:false
+    });
+    video.srcObject=stream;
+    await video.play();
+    rxRunning=true;
+    setRx("Camera active • Point at the TX QR.","good");
+    clearInterval(scanTimer);
+    scanTimer=setInterval(scanFrame,140);
+  }catch(e){
+    console.error(e);
+    setRx("Camera error: "+e.name+" — "+e.message,"bad");
+  }
+}
+
+function stopRx(){
+  clearInterval(scanTimer);scanTimer=null;rxRunning=false;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  video.srcObject=null;
+  setRx("Camera is stopped","");
+}
+
+function setRx(text,state){
+  document.getElementById("rxStatus").textContent=text;
+  document.getElementById("rxDot").className="dot"+(state?" "+state:"");
+}
+
+function scanFrame(){
+  if(!rxRunning||!video.videoWidth||!video.videoHeight||typeof jsQR!=="function")return;
+
+  const maxWidth=900;
+  const scale=Math.min(1,maxWidth/video.videoWidth);
+  const w=Math.max(1,Math.round(video.videoWidth*scale));
+  const h=Math.max(1,Math.round(video.videoHeight*scale));
+
+  canvas.width=w;canvas.height=h;
+  ctx.drawImage(video,0,0,w,h);
+
+  const image=ctx.getImageData(0,0,w,h);
+  const code=jsQR(image.data,w,h,{inversionAttempts:"attemptBoth"});
+
+  if(code?.data) handlePacket(code.data);
+}
+
+function handlePacket(raw){
+  if(raw===lastPacket)return;
+  lastPacket=raw;
+
+  const parts=raw.split("|");
+  if(parts.length!==3||parts[0]!=="AG1"){
+    setRx("QR found, but packet format is invalid.","bad");
+    return;
+  }
+
+  try{
+    const text=decodeText(parts[2]);
+    document.getElementById("receivedText").textContent=text;
+    setRx("✓ Packet #"+parts[1]+" received","good");
+    if(navigator.vibrate)navigator.vibrate(35);
+  }catch(e){
+    setRx("QR found, but payload decoding failed.","bad");
+  }
+}
+
+document.getElementById("startTx").onclick=startTx;
+document.getElementById("stopTx").onclick=stopTx;
+document.getElementById("startRx").onclick=startRx;
+document.getElementById("stopRx").onclick=stopRx;
+</script>
+</body>
+</html>
